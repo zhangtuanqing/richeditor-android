@@ -185,6 +185,11 @@ RE.insertImage = function(url, alt) {
     RE.insertHTML(html);
 }
 
+RE.insertImageEx = function(url, alt, style) {
+    var html = '<img src="' + url + '" alt="' + alt + '" style="' + style + '"/>';
+    RE.insertHTML(html);
+}
+
 RE.insertImageW = function(url, alt, width) {
     var html = '<img src="' + url + '" alt="' + alt + '" width="' + width + '"/>';
     RE.insertHTML(html);

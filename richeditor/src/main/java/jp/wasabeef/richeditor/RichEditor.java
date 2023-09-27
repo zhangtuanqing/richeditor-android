@@ -94,13 +94,17 @@ public class RichEditor extends WebView {
     this(context, attrs, android.R.attr.webViewStyle);
   }
 
-  @SuppressLint("SetJavaScriptEnabled")
+  @SuppressLint({"SetJavaScriptEnabled", "NewApi"})
   public RichEditor(Context context, AttributeSet attrs, int defStyleAttr) {
     super(context, attrs, defStyleAttr);
 
     setVerticalScrollBarEnabled(false);
     setHorizontalScrollBarEnabled(false);
     getSettings().setJavaScriptEnabled(true);
+    getSettings().setAllowFileAccess(true);
+    getSettings().setAllowFileAccessFromFileURLs(true);
+    getSettings().setAllowContentAccess(true);
+    getSettings().setAllowUniversalAccessFromFileURLs(true);
     setWebChromeClient(new WebChromeClient());
     setWebViewClient(createWebviewClient());
     loadUrl(SETUP_HTML);
@@ -374,6 +378,11 @@ public class RichEditor extends WebView {
   public void insertImage(String url, String alt) {
     exec("javascript:RE.prepareInsert();");
     exec("javascript:RE.insertImage('" + url + "', '" + alt + "');");
+  }
+
+  public void insertImage(String url, String alt, String style) {
+    exec("javascript:RE.prepareInsert();");
+    exec("javascript:RE.insertImageEx('" + url + "', '" + alt + "', '" + style + "');");
   }
 
   /**

@@ -1,18 +1,116 @@
 package jp.wasabeef.sample;
 
+import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.File;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import jp.wasabeef.richeditor.RichEditor;
 
 public class MainActivity extends AppCompatActivity {
 
   private RichEditor mEditor;
   private TextView mPreview;
+
+  private static final String TAG = "MainActivity";
+
+  private static final String CONTENT_FILE = "rich_editor.html";
+
+  private static final int IMG_PICK_REQUEST_CODE = 3;
+
+  @SuppressLint("NewApi")
+  private void saveContent(String content) {
+    try {
+      File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+      if (dir != null) {
+        dir.mkdirs();
+        File file = new File(dir, CONTENT_FILE);
+        Files.write(file.toPath(), content.getBytes());
+      } else {
+        Log.i(TAG, "save contents failed");
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  @SuppressLint("NewApi")
+  private void loadContent() {
+    try {
+      File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+      if (dir != null) {
+        dir.mkdirs();
+        File file = new File(dir, CONTENT_FILE);
+        if (!file.exists()) {
+          return;
+        }
+        byte[] buffer = Files.readAllBytes(file.toPath());
+        if (mEditor != null) {
+          String content = new String(buffer);
+          mEditor.setHtml(content);
+        }
+      } else {
+        Log.i(TAG, "save contents failed");
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  @SuppressLint("NewApi")
+  @Override
+  protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+    super.onActivityResult(requestCode, resultCode, data);
+    if (resultCode == RESULT_OK) {
+      switch (requestCode) {
+        case IMG_PICK_REQUEST_CODE:
+          InputStream is;
+          if (mEditor == null) {
+            return;
+          }
+          Uri uri = data.getData();
+          if (uri == null) {
+            Log.i(TAG, "failed uri");
+            return;
+          }
+          try {
+              Log.i(TAG, "image_uri: " + data.getData());
+              is = getContentResolver().openInputStream(uri);
+              if (is == null) {
+                Log.e(TAG, "is is null");
+                return;
+              }
+
+              File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+              dir.mkdirs();
+              File imgFile = new File(dir, uri.getLastPathSegment() + ".jpg");
+              Files.copy(is, imgFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+              String absolutePath = "file://" + imgFile.getAbsolutePath();
+              Log.i(TAG, "save_image_path: " + absolutePath);
+              mEditor.insertImage(absolutePath, "pic-desc", "margin-top:10px;max-width:20%;");
+              is.close();
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +129,7 @@ public class MainActivity extends AppCompatActivity {
     //mEditor.setInputEnabled(false);
 
     mPreview = (TextView) findViewById(R.id.preview);
+    loadContent();
     mEditor.setOnTextChangeListener(new RichEditor.OnTextChangeListener() {
       @Override
       public void onTextChange(String text) {
@@ -220,6 +319,14 @@ public class MainActivity extends AppCompatActivity {
       }
     });
 
+    findViewById(R.id.action_insert_local_image).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View v) {
+        Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/jpg");
+        startActivityForResult(intent, IMG_PICK_REQUEST_CODE);
+      }
+    });
+
     findViewById(R.id.action_insert_youtube).setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
@@ -251,6 +358,16 @@ public class MainActivity extends AppCompatActivity {
       @Override
       public void onClick(View v) {
         mEditor.insertTodo();
+      }
+    });
+    findViewById(R.id.save).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View view) {
+        Log.i(TAG, "save html");
+        if (mEditor != null) {
+          String content = mEditor.getHtml();
+          saveContent(content);
+          finish();
+        }
       }
     });
   }

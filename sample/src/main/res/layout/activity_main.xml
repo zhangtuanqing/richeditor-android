@@ -29,6 +29,16 @@
         android:contentDescription="@null"
         android:src="@drawable/redo" />
 
+      <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:id="@+id/save"
+        android:text="保存"
+        android:textSize="18dp"
+        android:textColor="#FF0000" />
+
       <ImageButton
         android:id="@+id/action_bold"
         android:layout_width="48dp"
@@ -213,6 +223,16 @@
         android:background="@null"
         android:contentDescription="@null"
         android:src="@drawable/insert_image" />
+
+      <TextView
+        android:id="@+id/action_insert_local_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:text="插入图片"
+        android:textSize="18dp"
+        android:textColor="#FF0000" />
 
       <ImageButton
         android:id="@+id/action_insert_audio"
