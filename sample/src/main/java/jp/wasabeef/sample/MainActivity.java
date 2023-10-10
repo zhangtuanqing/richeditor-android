@@ -6,7 +6,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
@@ -30,6 +30,7 @@ public class MainActivity extends AppCompatActivity {
   private static final String CONTENT_FILE = "rich_editor.html";
 
   private static final int IMG_PICK_REQUEST_CODE = 3;
+  private static final int VIDEO_PICK_REQUEST_CODE = 4;
 
   @SuppressLint("NewApi")
   private void saveContent(String content) {
@@ -71,39 +72,56 @@ public class MainActivity extends AppCompatActivity {
   }
 
   @SuppressLint("NewApi")
+  private String saveMediaContent(Uri src) {
+    if (src == null) {
+      Log.i(TAG, "failed uri");
+      return "";
+    }
+    String dstPath = null;
+    try {
+      Log.i(TAG, "image_uri: " + src);
+      InputStream is = getContentResolver().openInputStream(src);
+      if (is == null) {
+        Log.e(TAG, "is is null");
+        return "";
+      }
+
+      File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+      if (dir != null) {
+        dir.mkdirs();
+        File imgFile = new File(dir, String.valueOf(System.currentTimeMillis()));
+        Files.copy(is, imgFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        dstPath = "file://" + imgFile.getAbsolutePath();
+        Log.i(TAG, "save media: " + dstPath);
+      }
+      is.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return dstPath;
+  }
+
+  @SuppressLint("NewApi")
   @Override
   protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
+    Log.i(TAG, "onActivityResult: " + resultCode);
     if (resultCode == RESULT_OK) {
       switch (requestCode) {
         case IMG_PICK_REQUEST_CODE:
+        case VIDEO_PICK_REQUEST_CODE:
           InputStream is;
-          if (mEditor == null) {
+          if (mEditor == null || data == null) {
             return;
           }
           Uri uri = data.getData();
-          if (uri == null) {
-            Log.i(TAG, "failed uri");
-            return;
-          }
-          try {
-              Log.i(TAG, "image_uri: " + data.getData());
-              is = getContentResolver().openInputStream(uri);
-              if (is == null) {
-                Log.e(TAG, "is is null");
-                return;
-              }
-
-              File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
-              dir.mkdirs();
-              File imgFile = new File(dir, uri.getLastPathSegment() + ".jpg");
-              Files.copy(is, imgFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-              String absolutePath = "file://" + imgFile.getAbsolutePath();
-              Log.i(TAG, "save_image_path: " + absolutePath);
-              mEditor.insertImage(absolutePath, "pic-desc", "margin-top:10px;max-width:20%;");
-              is.close();
-          } catch (Exception e) {
-            e.printStackTrace();
+          String dstPath = saveMediaContent(uri);
+          if (!TextUtils.isEmpty(dstPath)) {
+            if (requestCode == IMG_PICK_REQUEST_CODE) {
+              mEditor.insertImage(dstPath, "pic-desc", "margin-top:10px;max-width:20%;");
+            } else {
+              mEditor.insertVideo(dstPath, 300);
+            }
           }
           break;
         default:
@@ -322,8 +340,16 @@ public class MainActivity extends AppCompatActivity {
     findViewById(R.id.action_insert_local_image).setOnClickListener(new View.OnClickListener() {
       @Override public void onClick(View v) {
         Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/jpg");
+        intent.setType("image/*");
         startActivityForResult(intent, IMG_PICK_REQUEST_CODE);
+      }
+    });
+
+    findViewById(R.id.action_insert_local_video).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View v) {
+        Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setType("video/*");
+        startActivityForResult(intent, VIDEO_PICK_REQUEST_CODE);
       }
     });
 
