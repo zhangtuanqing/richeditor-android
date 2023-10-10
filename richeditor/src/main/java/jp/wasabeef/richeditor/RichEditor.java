@@ -385,6 +385,11 @@ public class RichEditor extends WebView {
     exec("javascript:RE.insertImageEx('" + url + "', '" + alt + "', '" + style + "');");
   }
 
+  public void insertTable() {
+    exec("javascript:RE.prepareInsert();");
+    exec("javascript:RE.insertTable('" + 3 + "', '" + 3 + "');");
+  }
+
   /**
    * the image according to the specific width of the image automatically
    *

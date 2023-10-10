@@ -340,6 +340,21 @@ template {
   display: none;
 }
 
+table {
+  width: 20%;
+  border: 1px;
+  border-style: solid;
+  border-color: black;
+  margin: 5px;
+}
+
+table td {
+  border: 0.5px;
+  border-style: solid;
+  border-color: black;
+  height: 18px;
+}
+
 /**
  * Add the correct display in IE 10.
  */

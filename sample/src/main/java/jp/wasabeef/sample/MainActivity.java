@@ -345,6 +345,12 @@ public class MainActivity extends AppCompatActivity {
       }
     });
 
+    findViewById(R.id.action_insert_table).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View v) {
+        mEditor.insertTable();
+      }
+    });
+
     findViewById(R.id.action_insert_local_video).setOnClickListener(new View.OnClickListener() {
       @Override public void onClick(View v) {
         Intent intent = new Intent(Intent.ACTION_PICK);

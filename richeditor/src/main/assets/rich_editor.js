@@ -190,6 +190,11 @@ RE.insertImageEx = function(url, alt, style) {
     RE.insertHTML(html);
 }
 
+RE.insertTable = function(row, column) {
+  var html = '<table><tr><td> </td><td> </td><td> </td</tr><tr><td> </td><td> </td><td> </td</tr>';
+  RE.insertHTML(html);
+}
+
 RE.insertImageW = function(url, alt, width) {
     var html = '<img src="' + url + '" alt="' + alt + '" width="' + width + '"/>';
     RE.insertHTML(html);
