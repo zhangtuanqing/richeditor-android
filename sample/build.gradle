@@ -4,6 +4,7 @@ android {
   compileSdkVersion COMPILE_SDK_VERSION as int
 
   defaultConfig {
+    applicationId "jp.wasabeef.sample"
     minSdkVersion MIN_SDK_VERSION as int
     targetSdkVersion TARGET_SDK_VERSION as int
     versionCode VERSION_CODE as int

@@ -4,16 +4,20 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.Pair;
 import android.view.View;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import androidx.core.content.FileProvider;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -31,6 +35,10 @@ public class MainActivity extends AppCompatActivity {
 
   private static final int IMG_PICK_REQUEST_CODE = 3;
   private static final int VIDEO_PICK_REQUEST_CODE = 4;
+  private static final int IMG_CAPTURE_REQUEST_CODE = 5;
+
+  private Uri tempUri = null;
+  private File tempFile = null;
 
   @SuppressLint("NewApi")
   private void saveContent(String content) {
@@ -72,6 +80,20 @@ public class MainActivity extends AppCompatActivity {
   }
 
   @SuppressLint("NewApi")
+  private Pair<File, Uri> createTempMediaFile(String type) {
+    try {
+      File file = new File(getFilesDir(), "media");
+      file.mkdirs();
+      File tempFile = File.createTempFile("img_", "img", file);
+      Uri tempUri = FileProvider.getUriForFile(this, BuildConfig.APPLICATION_ID + ".provider", tempFile);
+      return new Pair<>(tempFile, tempUri);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  @SuppressLint("NewApi")
   private String saveMediaContent(Uri src) {
     if (src == null) {
       Log.i(TAG, "failed uri");
@@ -105,29 +127,47 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
-    Log.i(TAG, "onActivityResult: " + resultCode);
-    if (resultCode == RESULT_OK) {
-      switch (requestCode) {
-        case IMG_PICK_REQUEST_CODE:
-        case VIDEO_PICK_REQUEST_CODE:
-          InputStream is;
-          if (mEditor == null || data == null) {
-            return;
+
+    AsyncTask.execute(new Runnable() {
+      @Override public void run() {
+        Log.i(TAG, "onActivityResult: " + resultCode);
+        if (resultCode == RESULT_OK) {
+          switch (requestCode) {
+            case IMG_PICK_REQUEST_CODE:
+            case VIDEO_PICK_REQUEST_CODE:
+              if (mEditor == null || data == null) {
+                return;
+              }
+              Uri uri = data.getData();
+              String dstPath = saveMediaContent(uri);
+              mEditor.post(new Runnable() {
+                @Override public void run() {
+                  if (!TextUtils.isEmpty(dstPath)) {
+                    if (requestCode == IMG_PICK_REQUEST_CODE) {
+                      mEditor.insertImage(dstPath, "pic-desc", "margin-top:10px;max-width:20%;");
+                    } else {
+                      mEditor.insertVideo(dstPath, 300);
+                    }
+                  }
+                }
+              });
+              break;
+            case IMG_CAPTURE_REQUEST_CODE:
+              String dst = saveMediaContent(tempUri);
+              tempFile.delete();
+              tempUri = null;
+              tempFile = null;
+              mEditor.post(new Runnable() {
+                @Override public void run() {
+                  mEditor.insertImage(dst, "pic-desc", "margin-top:10px;max-width:20%;");
+                }
+              });
+            default:
+              break;
           }
-          Uri uri = data.getData();
-          String dstPath = saveMediaContent(uri);
-          if (!TextUtils.isEmpty(dstPath)) {
-            if (requestCode == IMG_PICK_REQUEST_CODE) {
-              mEditor.insertImage(dstPath, "pic-desc", "margin-top:10px;max-width:20%;");
-            } else {
-              mEditor.insertVideo(dstPath, 300);
-            }
-          }
-          break;
-        default:
-          break;
+        }
       }
-    }
+    });
   }
 
   @Override
@@ -348,6 +388,21 @@ public class MainActivity extends AppCompatActivity {
     findViewById(R.id.action_insert_table).setOnClickListener(new View.OnClickListener() {
       @Override public void onClick(View v) {
         mEditor.insertTable();
+      }
+    });
+
+    findViewById(R.id.action_take_picture).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View v) {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        Pair<File, Uri> tempMediaInfo = createTempMediaFile("image");
+        if (tempMediaInfo != null) {
+          tempUri = tempMediaInfo.second;
+          tempFile = tempMediaInfo.first;
+          Log.i(TAG, "tempUri=" + tempUri);
+          intent.putExtra(MediaStore.EXTRA_OUTPUT, tempUri);
+          intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+          startActivityForResult(intent, IMG_CAPTURE_REQUEST_CODE);
+        }
       }
     });
 
