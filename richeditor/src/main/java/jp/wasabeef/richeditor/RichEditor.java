@@ -12,6 +12,7 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
@@ -22,6 +23,7 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Copyright (C) 2020 Wasabeef
@@ -198,6 +200,42 @@ public class RichEditor extends WebView {
 
   public String getHtml() {
     return mContents;
+  }
+
+  public String getCanvasJson(String canvasId, ValueCallback<String> callback) {
+    try {
+      load("javascript:RE.getCanvasJson('" + canvasId + "');", callback);
+      return "";
+    } catch (Exception e) {
+      Log.i("RichEditor", "exception:" + e.getMessage());
+      e.printStackTrace();
+    }
+    return "";
+  }
+
+  public void loadCanvasJson(String canvasId, String json) {
+    try {
+      Log.i("RichEditor", "loadCanvasJson: " + json);
+      exec("javascript:RE.loadCanvas('" + canvasId + "', '" + json + "');");
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  public void useEraser() {
+    try {
+      exec("javascript:RE.useEraser();");
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  public void getCanvasIds(ValueCallback<String> callback) {
+    try {
+      load("javascript:RE.getCanvasIds();", callback);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 
   public void setEditorFontColor(int color) {
@@ -385,6 +423,11 @@ public class RichEditor extends WebView {
     exec("javascript:RE.insertImageEx('" + url + "', '" + alt + "', '" + style + "');");
   }
 
+  public void insertCanvas(String canvasId) {
+    exec("javascript:RE.prepareInsert();");
+    exec("javascript:RE.insertCanvas('" + canvasId + "');");
+  }
+
   public void insertTable() {
     exec("javascript:RE.prepareInsert();");
     exec("javascript:RE.insertTable('" + 3 + "', '" + 3 + "');");
@@ -490,6 +533,14 @@ public class RichEditor extends WebView {
   private void load(String trigger) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
       evaluateJavascript(trigger, null);
+    } else {
+      loadUrl(trigger);
+    }
+  }
+
+  private void load(String trigger, ValueCallback<String> resultCallback) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      evaluateJavascript(trigger, resultCallback);
     } else {
       loadUrl(trigger);
     }

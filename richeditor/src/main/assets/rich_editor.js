@@ -190,6 +190,11 @@ RE.insertImageEx = function(url, alt, style) {
     RE.insertHTML(html);
 }
 
+RE.insertTodo = function() {
+  var html = '<input type=checkbox />';
+  RE.insertHTML(html);
+}
+
 RE.insertTable = function(row, column) {
   var html = '<table><tr><td> </td><td> </td><td> </td</tr><tr><td> </td><td> </td><td> </td</tr>';
   RE.insertHTML(html);
@@ -358,6 +363,69 @@ RE.blurFocus = function() {
 
 RE.removeFormat = function() {
     document.execCommand('removeFormat', false, null);
+}
+
+var drawPanels = new Map();
+
+RE.insertCanvas = function(canvasId) {
+//     <canvas id="c1" style="border:1px solid #aaa"></canvas>
+    var html = '<canvas id="' + canvasId + '" style="border:1px solid #aaa" />';
+    RE.insertHTML(html);
+    var canvasCard = new fabric.Canvas(canvasId, {
+      isDrawingMode: true
+    });
+    canvasCard.setWidth(1260);
+    canvasCard.setHeight(200);
+    canvasCard.freeDrawingBrush = new fabric['PencilBrush'](canvasCard);
+    let brush = canvasCard.freeDrawingBrush;
+    brush.color = "#111"
+    brush.width = 1;
+    drawPanels.set(canvasId, canvasCard);
+}
+
+RE.loadCanvas = function(canvasId, json) {
+    var canvasCard = new fabric.Canvas(canvasId, {
+       isDrawingMode: true,
+       allowTouchScrolling: false
+    });
+    canvasCard.setWidth(1260);
+    canvasCard.setHeight(200);
+    canvasCard.loadFromJSON(json, canvasCard.renderAll.bind(canvasCard), null);
+    console.log("loadCanvas: " + canvasId);
+    drawPanels.set(canvasId, canvasCard);
+}
+
+RE.getCanvasJson = function(canvasId) {
+  for (var [key, value] of drawPanels) {
+      if (key == canvasId) {
+        return value.toJSON();
+      }
+  }
+  return "";
+}
+
+RE.getCanvasIds = function() {
+  console.log("getCanvasIds");
+  let elements = document.all;
+  let ids = [];
+  for (var i = 0; i < elements.length; i++) {
+    let element = elements[i];
+    if (element.tagName == "CANVAS" && element.id != '') {
+      ids.push(element.id);
+    }
+  }
+  return ids;
+}
+
+RE.usePencil = function() {
+
+}
+
+RE.useEraser = function() {
+  for (let [key, value] in drawPanels) {
+      value.freeDrawingBrush = new fabric['EraserBrush'](value);
+      value.freeDrawingBrush.width = 10;
+  }
 }
 
 // Event Listeners

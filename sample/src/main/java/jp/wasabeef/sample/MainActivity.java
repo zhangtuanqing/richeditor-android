@@ -12,17 +12,24 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.view.View;
+import android.webkit.ValueCallback;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import androidx.core.content.FileProvider;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import jp.wasabeef.richeditor.RichEditor;
+import org.json.JSONArray;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -32,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
   private static final String TAG = "MainActivity";
 
   private static final String CONTENT_FILE = "rich_editor.html";
+  private static final String CANVAS_FILE = "rich_editor_canvas.json";
 
   private static final int IMG_PICK_REQUEST_CODE = 3;
   private static final int VIDEO_PICK_REQUEST_CODE = 4;
@@ -41,12 +49,12 @@ public class MainActivity extends AppCompatActivity {
   private File tempFile = null;
 
   @SuppressLint("NewApi")
-  private void saveContent(String content) {
+  private void saveContent(String content, String name) {
     try {
       File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
       if (dir != null) {
         dir.mkdirs();
-        File file = new File(dir, CONTENT_FILE);
+        File file = new File(dir, name);
         Files.write(file.toPath(), content.getBytes());
       } else {
         Log.i(TAG, "save contents failed");
@@ -77,6 +85,66 @@ public class MainActivity extends AppCompatActivity {
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  @SuppressLint("NewApi")
+  private void loadCanvas() {
+    try {
+      File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+      if (dir != null) {
+        dir.mkdirs();
+        File[] jsonFiles = dir.listFiles(new FilenameFilter() {
+          @Override public boolean accept(File dir, String name) {
+            return name.endsWith("json");
+          }
+        });
+        for (int i = 0; i < jsonFiles.length; i++) {
+          File file = jsonFiles[i];
+          if (!file.exists()) {
+            return;
+          }
+          byte[] buffer = Files.readAllBytes(file.toPath());
+          if (mEditor != null) {
+            String content = new String(buffer);
+            String name = file.getName().substring(0, file.getName().lastIndexOf("."));
+            Log.i(TAG, "name: "  + ", canvasContent: " + content);
+            mEditor.loadCanvasJson(name, content);
+          }
+        }
+      } else {
+        Log.i(TAG, "save contents failed");
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void saveOnCanvas(String id) {
+    mEditor.getHandler().post(new Runnable() {
+      @Override public void run() {
+        mEditor.getCanvasJson(id, new ValueCallback<String>() {
+          @Override public void onReceiveValue(String value) {
+            Log.i(TAG, id + ", " + "receivedJson: " + value);
+            if (!TextUtils.isEmpty(value)) {
+              saveContent(value, id + ".json");
+            }
+          }
+        });
+      }
+    });
+  }
+
+  private void saveCanvas() {
+    mEditor.getCanvasIds(new ValueCallback<String>() {
+      @Override public void onReceiveValue(String value) {
+        Log.i(TAG, "rawCanvasId: " + value);
+        ArrayList<String> ids = new Gson().fromJson(value, new TypeToken<List<String>>() {
+        }.getType());
+        for (int i = 0; i < ids.size(); i++) {
+          saveOnCanvas(ids.get(i));
+        }
+      }
+    });
   }
 
   @SuppressLint("NewApi")
@@ -188,6 +256,7 @@ public class MainActivity extends AppCompatActivity {
 
     mPreview = (TextView) findViewById(R.id.preview);
     loadContent();
+    loadCanvas();
     mEditor.setOnTextChangeListener(new RichEditor.OnTextChangeListener() {
       @Override
       public void onTextChange(String text) {
@@ -414,6 +483,19 @@ public class MainActivity extends AppCompatActivity {
       }
     });
 
+    findViewById(R.id.action_insert_canvas).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View v) {
+        String canvasId = String.valueOf(System.currentTimeMillis());
+        mEditor.insertCanvas(canvasId);
+      }
+    });
+
+    findViewById(R.id.action_eraser).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View v) {
+        mEditor.useEraser();
+      }
+    });
+
     findViewById(R.id.action_insert_youtube).setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
@@ -452,8 +534,8 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "save html");
         if (mEditor != null) {
           String content = mEditor.getHtml();
-          saveContent(content);
-          finish();
+          saveContent(content, CONTENT_FILE);
+          saveCanvas();
         }
       }
     });

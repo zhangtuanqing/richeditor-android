@@ -37,6 +37,7 @@ repositories {
 }
 
 dependencies {
+  implementation 'com.google.code.gson:gson:2.7'
   implementation project(':richeditor')
   implementation "androidx.appcompat:appcompat:1.2.0"
 }
