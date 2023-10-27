@@ -1,10 +1,12 @@
 package jp.wasabeef.sample;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -15,6 +17,7 @@ import android.view.View;
 import android.webkit.ValueCallback;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -22,14 +25,23 @@ import androidx.core.content.FileProvider;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.FilenameFilter;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import jp.wasabeef.richeditor.RichEditor;
 import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -47,6 +59,51 @@ public class MainActivity extends AppCompatActivity {
 
   private Uri tempUri = null;
   private File tempFile = null;
+
+  public void onAudioRecorded(@NonNull String url) {
+    Log.i(TAG, "AudioUrl: " + url);
+    if (!TextUtils.isEmpty(url)) {
+      try {
+        JSONObject jsonObject = new JSONObject(url);
+        String fileName = (String) jsonObject.get("fileName");
+        String data = (String) jsonObject.get("data");
+        if (TextUtils.isEmpty(fileName) || TextUtils.isEmpty(data)) {
+          return;
+        }
+        String base64Data = data.substring("data:audio/webm;base64,".length(), data.length());
+        if (TextUtils.isEmpty(base64Data)) {
+          return;
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+          byte[] audioData = Base64.getDecoder().decode(base64Data);
+          Log.i(TAG, "decodedData: " + audioData.length);
+          File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+          if (dir != null) {
+            dir.mkdirs();
+            File imgFile = new File(fileName);
+            if (imgFile.exists()) {
+              imgFile.delete();
+            }
+            imgFile.createNewFile();
+            OutputStream os = Files.newOutputStream(imgFile.toPath());
+            os.write(audioData);
+            String dstPath = "file://" + imgFile.getAbsolutePath();
+            Log.i(TAG, "save media: " + dstPath);
+            os.close();
+            mPreview.getHandler().post(new Runnable() {
+              @Override public void run() {
+                if (mEditor != null) {
+                  mEditor.insertAudio(dstPath);
+                }
+              }
+            });
+          }
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+  }
 
   @SuppressLint("NewApi")
   private void saveContent(String content, String name) {
@@ -242,6 +299,11 @@ public class MainActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      requestPermissions(new String[] {
+        Manifest.permission.RECORD_AUDIO
+      }, 1);
+    }
     mEditor = (RichEditor) findViewById(R.id.editor);
     mEditor.setEditorHeight(200);
     mEditor.setEditorFontSize(22);
@@ -254,6 +316,16 @@ public class MainActivity extends AppCompatActivity {
     mEditor.setPlaceholder("Insert text here...");
     //mEditor.setInputEnabled(false);
 
+    mEditor.addJsListener(new RichEditor.OnJavascriptMessage() {
+      @Override public void onMessage(String message) throws JSONException {
+        JSONObject jsonObject = new JSONObject(message);
+        String callbackName = jsonObject.getString("callBack");
+        String info = jsonObject.getString("info");
+        if (callbackName.equals("onAudioRecorded")) {
+          onAudioRecorded(info);
+        }
+      }
+    });
     mPreview = (TextView) findViewById(R.id.preview);
     loadContent();
     loadCanvas();
@@ -493,6 +565,22 @@ public class MainActivity extends AppCompatActivity {
     findViewById(R.id.action_eraser).setOnClickListener(new View.OnClickListener() {
       @Override public void onClick(View v) {
         mEditor.useEraser();
+      }
+    });
+
+    findViewById(R.id.action_start_record).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View v) {
+        File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+        if (dir != null) {
+          File imgFile = new File(dir, System.currentTimeMillis() + ".webm");
+          mEditor.startRecord(imgFile.getAbsolutePath());
+        }
+      }
+    });
+
+    findViewById(R.id.action_stop_record).setOnClickListener(new View.OnClickListener() {
+      @Override public void onClick(View v) {
+        mEditor.stopRecord();
       }
     });
 

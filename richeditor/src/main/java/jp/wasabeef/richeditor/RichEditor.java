@@ -8,22 +8,37 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
+import android.webkit.DownloadListener;
+import android.webkit.JsResult;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebMessage;
+import android.webkit.WebMessagePort;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.LongUnaryOperator;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Copyright (C) 2020 Wasabeef
@@ -79,6 +94,7 @@ public class RichEditor extends WebView {
     void onAfterInitialLoad(boolean isReady);
   }
 
+  //private static final String SETUP_HTML = "https://addpipe.com/media-recorder-api-demo-audio/";
   private static final String SETUP_HTML = "file:///android_asset/editor.html";
   private static final String CALLBACK_SCHEME = "re-callback://";
   private static final String STATE_SCHEME = "re-state://";
@@ -96,6 +112,8 @@ public class RichEditor extends WebView {
     this(context, attrs, android.R.attr.webViewStyle);
   }
 
+  WebMessagePort[] ports;
+  WebMessagePort port;
   @SuppressLint({"SetJavaScriptEnabled", "NewApi"})
   public RichEditor(Context context, AttributeSet attrs, int defStyleAttr) {
     super(context, attrs, defStyleAttr);
@@ -107,7 +125,21 @@ public class RichEditor extends WebView {
     getSettings().setAllowFileAccessFromFileURLs(true);
     getSettings().setAllowContentAccess(true);
     getSettings().setAllowUniversalAccessFromFileURLs(true);
-    setWebChromeClient(new WebChromeClient());
+    getSettings().setDomStorageEnabled(true);
+    setWebChromeClient(new WebChromeClient() {
+      @Override public void onPermissionRequest(PermissionRequest request) {
+        Log.i("RichEditor", "request: " + request.getOrigin() + ", " + request.getResources());
+        request.grant(request.getResources());
+        Log.i("RichEditor", "onPermissionRequest");
+      }
+
+      @Override
+      public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
+        Log.i("RichEditor", "onJsAlert");
+        result.confirm();
+        return true;
+      }
+    });
     setWebViewClient(createWebviewClient());
     loadUrl(SETUP_HTML);
 
@@ -416,11 +448,15 @@ public class RichEditor extends WebView {
   public void insertImage(String url, String alt) {
     exec("javascript:RE.prepareInsert();");
     exec("javascript:RE.insertImage('" + url + "', '" + alt + "');");
+    Log.i("RichEditor", "postMessage1");
+    port.postMessage(new WebMessage("hahaha"));
   }
 
   public void insertImage(String url, String alt, String style) {
     exec("javascript:RE.prepareInsert();");
     exec("javascript:RE.insertImageEx('" + url + "', '" + alt + "', '" + style + "');");
+    port.postMessage(new WebMessage("hahaha"));
+    Log.i("RichEditor", "postMessage2");
   }
 
   public void insertCanvas(String canvasId) {
@@ -433,6 +469,14 @@ public class RichEditor extends WebView {
     exec("javascript:RE.insertTable('" + 3 + "', '" + 3 + "');");
   }
 
+  public void startRecord(String dstFilePath) {
+    exec("javascript:RE.startRecord('" + dstFilePath + "');");
+  }
+
+  public void stopRecord() {
+    exec("javascript:RE.stopRecord();");
+  }
+
   /**
    * the image according to the specific width of the image automatically
    *
@@ -443,6 +487,8 @@ public class RichEditor extends WebView {
   public void insertImage(String url, String alt, int width) {
     exec("javascript:RE.prepareInsert();");
     exec("javascript:RE.insertImageW('" + url + "', '" + alt + "','" + width + "');");
+    port.postMessage(new WebMessage("{\"Name\": \"aaa\", \"width\": \"bbb\", \"height\": 3}"));
+    Log.i("RichEditor", "postMessage3");
   }
 
   /**
@@ -457,6 +503,8 @@ public class RichEditor extends WebView {
   public void insertImage(String url, String alt, int width, int height) {
     exec("javascript:RE.prepareInsert();");
     exec("javascript:RE.insertImageWH('" + url + "', '" + alt + "','" + width + "', '" + height + "');");
+    port.postMessage(new WebMessage("hahaha"));
+    Log.i("RichEditor", "postMessage4");
   }
 
   public void insertVideo(String url) {
@@ -553,12 +601,27 @@ public class RichEditor extends WebView {
       if (mLoadListener != null) {
         mLoadListener.onAfterInitialLoad(isReady);
       }
+      ports = createWebMessageChannel();
+      ports[0].setWebMessageCallback(new WebMessagePort.WebMessageCallback() {
+        @Override public void onMessage(WebMessagePort port, WebMessage message) {
+          Log.i("RichEditor", "message: " + message.getData());
+          try {
+            if (jsListener != null) {
+              jsListener.onMessage(message.getData());
+            }
+          } catch (JSONException e) {
+            throw new RuntimeException(e);
+          }
+        }
+      });
+      port = ports[0];
+      postWebMessage(new WebMessage("", new WebMessagePort[]{ports[1]}), Uri.EMPTY);
     }
 
     @Override
     public boolean shouldOverrideUrlLoading(WebView view, String url) {
       String decode = Uri.decode(url);
-
+      Log.i("RichEditor", "shouldOveride: " + url);
       if (TextUtils.indexOf(url, CALLBACK_SCHEME) == 0) {
         callback(decode);
         return true;
@@ -566,7 +629,6 @@ public class RichEditor extends WebView {
         stateCheck(decode);
         return true;
       }
-
       return super.shouldOverrideUrlLoading(view, url);
     }
 
@@ -585,5 +647,15 @@ public class RichEditor extends WebView {
       }
       return super.shouldOverrideUrlLoading(view, request);
     }
+  }
+
+
+  public void addJsListener(OnJavascriptMessage listener) {
+    this.jsListener = listener;
+  }
+
+  private OnJavascriptMessage jsListener;
+  public interface OnJavascriptMessage {
+    void onMessage(String message) throws JSONException;
   }
 }

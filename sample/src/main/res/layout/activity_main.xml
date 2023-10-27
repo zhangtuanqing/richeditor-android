@@ -90,6 +90,30 @@
         android:textColor="#FF0000" />
 
       <TextView
+        android:id="@+id/action_start_record"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:text="开始录音"
+        android:textSize="18dp"
+        android:textColor="#FF0000" />
+
+      <TextView
+        android:id="@+id/action_stop_record"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:text="停止录音"
+        android:textSize="18dp"
+        android:textColor="#FF0000" />
+
+      <TextView
         android:id="@+id/action_eraser"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
